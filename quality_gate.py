@@ -6,6 +6,8 @@ Validates the submitted answers with Great Expectations on three layers:
 - records: is this record ready for training, counting trusted votes only
 
 Exits 1 when any check fails, so nothing downstream runs on data that failed the gate.
+Moves the round to gated or gate_failed in rounds.json; a gated round keeps a fingerprint
+of the answers it checked, so the export can refuse answers changed since.
 """
 
 import logging
@@ -15,7 +17,8 @@ import great_expectations as gx
 import pandas as pd
 from great_expectations.data_context.types.base import ProgressBarsConfig
 
-from responses import PREFERENCES, load_responses
+import rounds
+from responses import PREFERENCES, fingerprint, load_responses
 
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 CONFIDENCES = ["sure", "unsure", "cannot_judge"]
@@ -26,6 +29,16 @@ MIN_SURE = 3
 MIN_GOLD_ACCURACY = 0.6
 MAX_DEFERRED = 0.5
 MIN_TRUSTED_VOTES = 2
+
+GATEABLE = {"annotating", "gate_failed", "gated"}
+
+status = rounds.get(DATASET)["status"]
+if status == "canceled":
+    print(f"{DATASET} is canceled, nothing to gate")
+    raise SystemExit(0)
+if status not in GATEABLE:
+    hint = f": run python rounds.py start {DATASET}" if status is None else ""
+    raise SystemExit(f"{DATASET} is {status or 'unregistered'}, the gate runs on {', '.join(sorted(GATEABLE))}{hint}")
 
 df, record_ids = load_responses(DATASET)
 
@@ -162,7 +175,7 @@ source = context.data_sources.add_pandas("annotations")
 
 
 def validate(suite, frame, index_columns):
-    """Run one suite on one frame, print every check with the rows it failed on."""
+    """Run one suite on one frame, print every check with the rows it failed on, return the failed checks."""
     batch_definition = source.add_dataframe_asset(suite.name).add_batch_definition_whole_dataframe("all")
     validation = context.validation_definitions.add(
         gx.ValidationDefinition(name=suite.name, data=batch_definition, suite=context.suites.add(suite))
@@ -178,16 +191,17 @@ def validate(suite, frame, index_columns):
             failed = check.result.get("unexpected_index_list") or []
             names = sorted({"/".join(str(row[column]) for column in index_columns) for row in failed})
             print(f"        {len(names)}: {', '.join(names)}")
-    return result.success
+    return [f"{suite.name}: {check.expectation_config.description}" for check in result.results if not check.success]
 
 
 print(f"{DATASET}: {len(df)} answers, {len(annotators)} annotators, {len(records)} records")
-passed = [
-    validate(responses_suite, df, ["record_id", "annotator"]),
-    validate(annotators_suite, annotators, ["annotator"]),
-    validate(records_suite, records, ["record_id"]),
+failed = [
+    *validate(responses_suite, df, ["record_id", "annotator"]),
+    *validate(annotators_suite, annotators, ["annotator"]),
+    *validate(records_suite, records, ["record_id"]),
 ]
-print(f"\ntrusted annotators: {', '.join(trusted) or 'none'}")
-if not all(passed):
+print(f"\ntrusted annotators: {', '.join(trusted) or 'none'}\n")
+if failed:
+    rounds.move(DATASET, "gate_failed", f"{len(failed)} checks failed: " + "; ".join(failed))
     raise SystemExit(f"gate FAILED on {DATASET}: do not export")
-print(f"gate passed on {DATASET}")
+rounds.move(DATASET, "gated", "all checks passed", fingerprint=fingerprint(df))

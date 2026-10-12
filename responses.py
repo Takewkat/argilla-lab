@@ -1,8 +1,9 @@
 """Load the submitted answers of a dataset: one row per annotator and record, the gold answer next to each.
 
-Shared by quality_gate.py and bias_report.py, so both read the same rows.
+Shared by quality_gate.py, bias_report.py and export_training_data.py, so all three read the same rows.
 """
 
+import hashlib
 import json
 
 import argilla as rg
@@ -61,3 +62,10 @@ def load_responses(dataset_name):
     df["correct"] = df["preference"] == df["key"]
     df["issues_kind"] = df["issues"].map(issues_kind)
     return df, sorted(record_ids)
+
+
+def fingerprint(df):
+    """A short hash of who answered what, to tell whether the answers changed since the gate ran."""
+    columns = ["record_id", "annotator", *QUESTIONS]
+    rows = df[columns].sort_values(["record_id", "annotator"]).to_csv(index=False)
+    return hashlib.sha256(rows.encode()).hexdigest()[:12]

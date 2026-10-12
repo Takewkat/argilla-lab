@@ -4,20 +4,37 @@ The reviewer's label wins over the annotators' majority. A both_bad record with 
 human rewrite in rewrites.json becomes training data instead of a queue entry.
 An annotator answer marked unsure or cannot_judge goes to the review queue
 instead of the training data, until the reviewer decides it.
+
+Runs only on a validated round (rounds.py), and only on the answers the gate checked:
+a canceled round is skipped, any other status or changed answers exit 1.
+Usage: python export_training_data.py [dataset], code-preference-v3 by default.
 """
 
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 
 import argilla as rg
 
+import rounds
 from config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
+from responses import fingerprint, load_responses
 
-DATASET = "code-preference-v2"
+DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 REVIEWER = "reviewer"
 HERE = Path(__file__).parent
 OUT = HERE / "out" / DATASET
+
+round_ = rounds.get(DATASET)
+if round_["status"] == "canceled":
+    print(f"{DATASET} is canceled, nothing to export")
+    raise SystemExit(0)
+if round_["status"] not in ("validated", "exported"):
+    raise SystemExit(f"{DATASET} is {round_['status'] or 'unregistered'}, export needs a validated round")
+answers, _ = load_responses(DATASET)
+if fingerprint(answers) != round_.get("fingerprint"):
+    raise SystemExit(f"{DATASET}: answers changed since the gate ran, reopen the round and gate it again")
 
 rewrites = json.loads((PRIVATE_DIR / "rewrites.json").read_text())
 client = rg.Argilla(api_url=API_URL, api_key=API_KEY)
@@ -85,4 +102,6 @@ for name, rows in outputs:
     (OUT / name).write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
 for record_id, outcome in log:
     print(f"{record_id}  {outcome}")
-print(f"\n{OUT}: " + ", ".join(f"{name} {len(rows)}" for name, rows in outputs))
+summary = ", ".join(f"{name} {len(rows)}" for name, rows in outputs)
+print(f"\n{OUT}: {summary}")
+rounds.move(DATASET, "exported", summary)

@@ -8,6 +8,7 @@ Round 3 (code-preference-v3): same guidelines, the five numpy and pandas pairs o
 
 import argilla as rg
 
+import rounds
 from config import API_KEY, API_URL, WORKSPACE, env
 from tasks import NUMPY_TASKS
 
@@ -91,4 +92,5 @@ dataset.records.log(
 )
 
 print(f"{DATASET}: {len(NUMPY_TASKS)} records")
+rounds.move(DATASET, "annotating", "round created")
 print(f"UI: {API_URL}, annotators {', '.join(ANNOTATORS)}, password in .env")
