@@ -24,6 +24,9 @@ STAGES = {
         "export": ("argilla_lab.training.export", "DPO/SFT export of a validated round"),
         "train-dpo": ("argilla_lab.training.train_dpo", "LoRA DPO on the export, needs uv sync --group train"),
     },
+    "swe-bench": {
+        "swe-audit": ("argilla_lab.swe_bench.audit", "quality audit of the published SWE-bench Verified annotations"),
+    },
 }
 COMMANDS = {name: module for commands in STAGES.values() for name, (module, _) in commands.items()}
 
