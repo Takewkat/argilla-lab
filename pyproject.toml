@@ -2,6 +2,7 @@
 name = "argilla-lab"
 version = "0.1.0"
 description = "Code-preference annotation lab on a local Argilla"
+readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
     "argilla>=2.0",
