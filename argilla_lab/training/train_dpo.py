@@ -17,7 +17,7 @@ from trl import DPOConfig, DPOTrainer
 from argilla_lab.core.paths import OUT_DIR
 
 MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
-DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference"
+DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 DATA = OUT_DIR / DATASET / "dpo.jsonl"
 OUTPUT = OUT_DIR / DATASET / "dpo-adapter"
 HELD_OUT = "Write a Python function that returns the median of a list of numbers. It must raise ValueError on an empty list."
