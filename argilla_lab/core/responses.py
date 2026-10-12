@@ -1,6 +1,6 @@
 """Load the submitted answers of a dataset: one row per annotator and record, the gold answer next to each.
 
-Shared by quality_gate.py, bias_report.py and export_training_data.py, so all three read the same rows.
+Shared by the gate, the bias report and the export, so all three read the same rows.
 """
 
 import hashlib
@@ -9,7 +9,7 @@ import json
 import argilla as rg
 import pandas as pd
 
-from config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
+from argilla_lab.core.config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
 
 QUESTIONS = ["preference", "confidence", "rationale", "issues"]
 PREFERENCES = ["A", "B", "tie", "both_bad"]

@@ -7,7 +7,6 @@ It also generates an answer to one held-out prompt before and after training.
 
 import json
 import sys
-from pathlib import Path
 
 import torch
 from datasets import Dataset
@@ -15,11 +14,12 @@ from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import DPOConfig, DPOTrainer
 
+from argilla_lab.core.paths import OUT_DIR
+
 MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
-HERE = Path(__file__).parent
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference"
-DATA = HERE / "out" / DATASET / "dpo.jsonl"
-OUTPUT = HERE / "out" / DATASET / "dpo-adapter"
+DATA = OUT_DIR / DATASET / "dpo.jsonl"
+OUTPUT = OUT_DIR / DATASET / "dpo-adapter"
 HELD_OUT = "Write a Python function that returns the median of a list of numbers. It must raise ValueError on an empty list."
 
 pairs = [json.loads(line) for line in DATA.read_text().splitlines()]

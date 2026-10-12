@@ -1,4 +1,4 @@
-"""Quality gate on a code-preference dataset, to run before export_training_data.py.
+"""Quality gate on a code-preference dataset, to run before lab export.
 
 Validates the submitted answers with Great Expectations on three layers:
 - responses: one row per annotator and record, one expectation per annotation guideline
@@ -10,19 +10,18 @@ Moves the round to gated or gate_failed in rounds.json; a gated round keeps a fi
 of the answers it checked, so the export can refuse answers changed since.
 """
 
-import logging
 import sys
 
 import great_expectations as gx
 import pandas as pd
-from great_expectations.data_context.types.base import ProgressBarsConfig
 
-import rounds
-from responses import PREFERENCES, fingerprint, load_responses
+from argilla_lab.core import rounds
+from argilla_lab.core.gx_runner import validate
+from argilla_lab.core.responses import PREFERENCES, fingerprint, load_responses
 
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 CONFIDENCES = ["sure", "unsure", "cannot_judge"]
-PLACEHOLDERS = [r"^\s*$", r"^\s*test\s*$", r"^\[random\]"]
+PLACEHOLDERS = [r"^\s*$", r"(?i)^\s*(test|n/?a|none|todo|asdf|-+|\.+)\s*$"]
 MIN_RATIONALE = 20
 MIN_ANNOTATORS = 2
 MIN_SURE = 3
@@ -37,7 +36,7 @@ if status == "canceled":
     print(f"{DATASET} is canceled, nothing to gate")
     raise SystemExit(0)
 if status not in GATEABLE:
-    hint = f": run python rounds.py start {DATASET}" if status is None else ""
+    hint = f": run uv run lab rounds start {DATASET}" if status is None else ""
     raise SystemExit(f"{DATASET} is {status or 'unregistered'}, the gate runs on {', '.join(sorted(GATEABLE))}{hint}")
 
 df, record_ids = load_responses(DATASET)
@@ -166,33 +165,6 @@ records_suite = gx.ExpectationSuite(
         ),
     ],
 )
-
-for name in ("great_expectations", "great_expectations.data_context.types.base"):
-    logging.getLogger(name).setLevel(logging.WARNING)
-context = gx.get_context(mode="ephemeral")
-context.variables.progress_bars = ProgressBarsConfig(globally=False)
-source = context.data_sources.add_pandas("annotations")
-
-
-def validate(suite, frame, index_columns):
-    """Run one suite on one frame, print every check with the rows it failed on, return the failed checks."""
-    batch_definition = source.add_dataframe_asset(suite.name).add_batch_definition_whole_dataframe("all")
-    validation = context.validation_definitions.add(
-        gx.ValidationDefinition(name=suite.name, data=batch_definition, suite=context.suites.add(suite))
-    )
-    result = validation.run(
-        batch_parameters={"dataframe": frame.reset_index(drop=True)},
-        result_format={"result_format": "COMPLETE", "unexpected_index_column_names": index_columns},
-    )
-    print(f"\n[{suite.name}] {len(frame)} rows")
-    for check in result.results:
-        print(f"  {'PASS' if check.success else 'FAIL'}  {check.expectation_config.description}")
-        if not check.success:
-            failed = check.result.get("unexpected_index_list") or []
-            names = sorted({"/".join(str(row[column]) for column in index_columns) for row in failed})
-            print(f"        {len(names)}: {', '.join(names)}")
-    return [f"{suite.name}: {check.expectation_config.description}" for check in result.results if not check.success]
-
 
 print(f"{DATASET}: {len(df)} answers, {len(annotators)} annotators, {len(records)} records")
 failed = [

@@ -1,13 +1,17 @@
-"""Submit a reviewer's final labels on the disputed records, next to the annotator's own."""
+"""Submit a reviewer's final labels on the disputed records, next to the annotator's own.
+
+Usage: uv run lab adjudicate [dataset], code-preference by default (the round adjudication.json was written for).
+"""
 
 import json
+import sys
 
 import argilla as rg
 
-from config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE, env
-from tasks import TASKS
+from argilla_lab.core.config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE, env
+from argilla_lab.annotate.tasks import TASKS
 
-DATASET = "code-preference"
+DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference"
 REVIEWER = "reviewer"
 REVIEWER_PASSWORD = env("REVIEWER_PASSWORD")
 

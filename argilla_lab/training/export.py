@@ -5,26 +5,25 @@ human rewrite in rewrites.json becomes training data instead of a queue entry.
 An annotator answer marked unsure or cannot_judge goes to the review queue
 instead of the training data, until the reviewer decides it.
 
-Runs only on a validated round (rounds.py), and only on the answers the gate checked:
+Runs only on a validated round (core/rounds.py), and only on the answers the gate checked:
 a canceled round is skipped, any other status or changed answers exit 1.
-Usage: python export_training_data.py [dataset], code-preference-v3 by default.
+Usage: uv run lab export [dataset], code-preference-v3 by default.
 """
 
 import json
 import sys
 from collections import Counter
-from pathlib import Path
 
 import argilla as rg
 
-import rounds
-from config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
-from responses import fingerprint, load_responses
+from argilla_lab.core import rounds
+from argilla_lab.core.config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
+from argilla_lab.core.paths import OUT_DIR
+from argilla_lab.core.responses import fingerprint, load_responses
 
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 REVIEWER = "reviewer"
-HERE = Path(__file__).parent
-OUT = HERE / "out" / DATASET
+OUT = OUT_DIR / DATASET
 
 round_ = rounds.get(DATASET)
 if round_["status"] == "canceled":

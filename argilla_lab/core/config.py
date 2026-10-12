@@ -1,12 +1,13 @@
-"""Settings shared by the lab scripts, read from .env next to this file."""
+"""Settings shared by the lab commands, read from .env at the repository root."""
 
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-HERE = Path(__file__).parent
-load_dotenv(HERE / ".env")
+from argilla_lab.core.paths import ROOT
+
+load_dotenv(ROOT / ".env")
 
 
 def env(name: str) -> str:

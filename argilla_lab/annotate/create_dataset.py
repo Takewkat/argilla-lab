@@ -8,9 +8,9 @@ Round 3 (code-preference-v3): same guidelines, the five numpy and pandas pairs o
 
 import argilla as rg
 
-import rounds
-from config import API_KEY, API_URL, WORKSPACE, env
-from tasks import NUMPY_TASKS
+from argilla_lab.core import rounds
+from argilla_lab.core.config import API_KEY, API_URL, WORKSPACE, env
+from argilla_lab.annotate.tasks import NUMPY_TASKS
 
 DATASET = "code-preference-v3"
 ANNOTATORS = ["iana", "annotator2", "annotator3"]

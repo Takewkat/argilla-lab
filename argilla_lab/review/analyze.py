@@ -5,7 +5,8 @@ from collections import Counter
 
 import argilla as rg
 
-from config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
+from argilla_lab.core.agreement import fleiss_kappa
+from argilla_lab.core.config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
 
 DATASET = "code-preference-v3"
 LABELS = ["A", "B", "tie", "both_bad"]
@@ -30,7 +31,11 @@ rows.sort()
 hits = Counter()
 seen = Counter()
 deferred = Counter()
+# A record nobody answered is skipped: printing its key would spoil a blind annotation
+unanswered = [record_id for record_id, votes, _, final, _ in rows if not votes and not final]
 for record_id, votes, why, final, doubt in rows:
+    if record_id in unanswered:
+        continue
     expected = key[record_id]["preference"]
     if len(votes) < 2:
         marker = "single"
@@ -49,6 +54,8 @@ for record_id, votes, why, final, doubt in rows:
     if final:
         print(f"  => {REVIEWER:<12} {final:<9} {why.get(REVIEWER, '')}")
 
+if unanswered:
+    print(f"\n{len(unanswered)} records not answered yet, key hidden: {', '.join(unanswered)}")
 print("\nAccuracy against the key (sure answers only), and answers deferred to the reviewer:")
 for user in sorted(set(seen) | set(deferred)):
     print(f"  {user:<12} {hits[user]}/{seen[user]} sure, {deferred[user]} deferred")
@@ -56,10 +63,6 @@ for user in sorted(set(seen) | set(deferred)):
 # Fleiss' kappa over the records every annotator submitted
 full = [votes for _, votes, _, _, _ in rows if len(votes) == len(seen) and len(seen) > 1]
 if full:
-    n = len(seen)
     counts = [[list(v.values()).count(label) for label in LABELS] for v in full]
-    p_bar = sum((sum(c * c for c in row) - n) / (n * (n - 1)) for row in counts) / len(counts)
-    p_j = [sum(row[j] for row in counts) / (len(counts) * n) for j in range(len(LABELS))]
-    p_e = sum(p * p for p in p_j)
-    kappa = (p_bar - p_e) / (1 - p_e) if p_e < 1 else 1.0
+    kappa = fleiss_kappa(counts)
     print(f"\nFleiss' kappa over {len(full)} fully annotated records: {kappa:.2f}")

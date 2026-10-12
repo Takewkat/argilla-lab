@@ -1,19 +1,19 @@
 """Status of each annotation round, kept with the reviewer material in rounds.json.
 
-    annotating -> gated or gate_failed   quality_gate.py
+    annotating -> gated or gate_failed   lab gate
     gated      -> validated              a reviewer, with a reason
-    validated  -> exported               export_training_data.py
+    validated  -> exported               lab export
     validated  -> annotating             a reviewer reopens it, the answers must change
     any round not exported -> canceled
 
 Every move is appended to the round's history: what, when, who and why.
 
 Usage:
-    python rounds.py                           list the rounds
-    python rounds.py start <dataset>
-    python rounds.py validate <dataset> <reason>
-    python rounds.py reopen <dataset> <reason>
-    python rounds.py cancel <dataset> <reason>
+    uv run lab rounds                           list the rounds
+    uv run lab rounds start <dataset>
+    uv run lab rounds validate <dataset> <reason>
+    uv run lab rounds reopen <dataset> <reason>
+    uv run lab rounds cancel <dataset> <reason>
 """
 
 import getpass
@@ -21,7 +21,7 @@ import json
 import sys
 from datetime import datetime, timezone
 
-from config import PRIVATE_DIR
+from argilla_lab.core.config import PRIVATE_DIR
 
 ROUNDS = PRIVATE_DIR / "rounds.json"
 # Status -> the statuses it may move to. None is a round not registered yet.

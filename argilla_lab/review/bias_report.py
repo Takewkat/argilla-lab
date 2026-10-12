@@ -6,18 +6,18 @@ direction of the errors, every number with its n:
 - calibration: confidence against correctness
 - confusion: which gold label gets answered as which
 
-Usage: python bias_report.py [dataset], code-preference-v3 by default.
+Usage: uv run lab bias-report [dataset], code-preference-v3 by default.
 """
 
 import sys
-from pathlib import Path
 
 import pandas as pd
 
-from responses import PREFERENCES, load_responses
+from argilla_lab.core.paths import OUT_DIR
+from argilla_lab.core.responses import PREFERENCES, load_responses
 
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
-OUT = Path(__file__).parent / "out" / DATASET / "quality_report.md"
+OUT = OUT_DIR / DATASET / "quality_report.md"
 SMALL_N = 5
 
 
