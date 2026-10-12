@@ -1,0 +1,24 @@
+[project]
+name = "argilla-lab"
+version = "0.1.0"
+description = "Code-preference annotation lab on a local Argilla"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "argilla>=2.0",
+    "great-expectations>=1.24.0",
+    "pandas>=2.3.3",
+    "python-dotenv",
+    "requests",
+]
+
+[dependency-groups]
+train = [
+    "datasets",
+    "peft",
+    "torch",
+    "transformers",
+    "trl>=0.24",
+]
+
+[tool.uv]
+package = false
