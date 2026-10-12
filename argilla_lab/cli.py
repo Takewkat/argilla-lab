@@ -14,7 +14,7 @@ STAGES = {
     "review": {
         "analyze": ("argilla_lab.review.analyze", "accuracy against the answer key, Fleiss' kappa"),
         "adjudicate": ("argilla_lab.review.adjudicate", "submit the reviewer's final labels on disputed records"),
-        "bias-report": ("argilla_lab.review.bias_report", "label bias, calibration and confusion, as Markdown"),
+        "report": ("argilla_lab.review.report", "quality report: decisions, agreement, annotators, calibration"),
     },
     "gate": {
         "gate": ("argilla_lab.gate.quality_gate", "three-layer quality gate, moves the round to gated or gate_failed"),

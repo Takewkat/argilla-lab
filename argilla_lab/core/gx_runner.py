@@ -26,11 +26,13 @@ def validate(suite, frame, index_columns, show=20):
         result_format={"result_format": "COMPLETE", "unexpected_index_column_names": index_columns},
     )
     print(f"\n[{suite.name}] {len(frame)} rows")
+    failures = []
     for check in result.results:
         print(f"  {'PASS' if check.success else 'FAIL'}  {check.expectation_config.description}")
         if not check.success:
-            failed = check.result.get("unexpected_index_list") or []
-            names = sorted({"/".join(str(row[column]) for column in index_columns) for row in failed})
+            unexpected = check.result.get("unexpected_index_list") or []
+            names = sorted({"/".join(str(row[column]) for column in index_columns) for row in unexpected})
             more = f", ... {len(names) - show} more" if len(names) > show else ""
             print(f"        {len(names)}: {', '.join(names[:show])}{more}")
-    return [f"{suite.name}: {check.expectation_config.description}" for check in result.results if not check.success]
+            failures.append(f"{suite.name}: {check.expectation_config.description} ({len(names) or 'table'})")
+    return failures

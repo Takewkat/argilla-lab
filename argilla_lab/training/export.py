@@ -1,9 +1,10 @@
 """Turn the submitted preferences into DPO pairs, SFT examples and a rewrite queue.
 
-The reviewer's label wins over the annotators' majority. A both_bad record with a
-human rewrite in rewrites.json becomes training data instead of a queue entry.
-An annotator answer marked unsure or cannot_judge goes to the review queue
-instead of the training data, until the reviewer decides it.
+The reviewer's label wins over the annotators' majority, and the majority is the one the gate
+computed (core/checks.py): sure votes from annotators trusted on the gold key only.
+A both_bad record with a human rewrite in rewrites.json becomes training data instead of
+a queue entry. A trusted annotator's answer marked unsure or cannot_judge sends the record
+to the review queue instead of the training data, until the reviewer decides it.
 
 Runs only on a validated round (core/rounds.py), and only on the answers the gate checked:
 a canceled round is skipped, any other status or changed answers exit 1.
@@ -12,14 +13,14 @@ Usage: uv run lab export [dataset], code-preference-v3 by default.
 
 import json
 import sys
-from collections import Counter
 
 import argilla as rg
 
-from argilla_lab.core import rounds
+from argilla_lab.core import checks, rounds
 from argilla_lab.core.config import API_KEY, API_URL, PRIVATE_DIR, WORKSPACE
 from argilla_lab.core.paths import OUT_DIR
 from argilla_lab.core.responses import fingerprint, load_responses
+from argilla_lab.rubrics import for_dataset
 
 DATASET = sys.argv[1] if len(sys.argv) > 1 else "code-preference-v3"
 REVIEWER = "reviewer"
@@ -31,14 +32,18 @@ if round_["status"] == "canceled":
     raise SystemExit(0)
 if round_["status"] not in ("validated", "exported"):
     raise SystemExit(f"{DATASET} is {round_['status'] or 'unregistered'}, export needs a validated round")
-answers, _ = load_responses(DATASET)
-if fingerprint(answers) != round_.get("fingerprint"):
+rubric = for_dataset(DATASET)
+answers, record_ids = load_responses(DATASET, rubric)
+if fingerprint(answers, rubric) != round_.get("fingerprint"):
     raise SystemExit(f"{DATASET}: answers changed since the gate ran, reopen the round and gate it again")
 
 rewrites = json.loads((PRIVATE_DIR / "rewrites.json").read_text())
 client = rg.Argilla(api_url=API_URL, api_key=API_KEY)
 reviewer_id = client.users(REVIEWER).id if client.users(REVIEWER) else None
 dataset = client.datasets(DATASET, workspace=WORKSPACE)
+evaluation = checks.evaluate(rubric, answers, record_ids)
+decided = evaluation.records.set_index("record_id")
+trusted_ids = {u.id for u in client.users if u.username in evaluation.trusted}
 
 
 def pair(record_id, prompt, chosen, rejected):
@@ -58,23 +63,19 @@ for record in sorted(dataset.records(with_responses=True), key=lambda r: r.id):
     final = [r.value for r in submitted if r.user_id == reviewer_id]
     unsure = {
         r.user_id for r in record.responses["confidence"]
-        if r.status == "submitted" and r.value != "sure" and r.user_id != reviewer_id
+        if r.status == "submitted" and r.value != "sure" and r.user_id in trusted_ids
     }
-    votes = [r.value for r in submitted if r.user_id != reviewer_id and r.user_id not in unsure]
+    row = decided.loc[record.id]
     if not final and unsure:
         review.append({"id": record.id, "prompt": record.fields["prompt"], "unsure_annotators": len(unsure)})
         log.append((record.id, f"{len(unsure)} unsure -> review queue"))
         continue
     if final:
         label, source = final[0], "reviewer"
-    elif votes:
-        label, count = Counter(votes).most_common(1)[0]
-        source = "majority"
-        if count <= len(votes) / 2:
-            log.append((record.id, f"skipped, no majority: {votes}"))
-            continue
+    elif row["preference_votes"] >= rubric.min_votes and row["preference_share"] > 0.5:
+        label, source = row["preference_label"], "trusted majority"
     else:
-        log.append((record.id, "skipped, not annotated"))
+        log.append((record.id, f"skipped, no trusted majority ({int(row['preference_votes'])} counted votes)"))
         continue
 
     prompt = record.fields["prompt"]

@@ -7,6 +7,8 @@ Two tables, read straight from the archive:
 - per_annotator: one row per sample and annotator, 3 annotators per sample
 - ensembled: one row per sample, the label kept and whose label it was
 
+answers() reshapes the first for core/checks.py, under the swe-verified rubric.
+
 The file is checked against the sha256 of the published archive, so an edited or
 replaced copy fails to load instead of silently changing every metric.
 """
@@ -42,3 +44,9 @@ def load():
         df[SEVERITIES] = df[SEVERITIES].apply(pd.to_numeric, errors="coerce")
     per_annotator["user_id"] = per_annotator["user_id"].astype(str)
     return per_annotator, ensembled
+
+
+def answers(per_annotator):
+    """The per-annotator table shaped for core/checks.py: record_id, annotator, then the rubric's columns."""
+    frame = per_annotator.rename(columns={"instance_id": "record_id", "user_id": "annotator"})
+    return frame, sorted(frame["record_id"].unique())
